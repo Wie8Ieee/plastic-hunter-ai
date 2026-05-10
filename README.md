@@ -47,28 +47,39 @@ Core capabilities:
 ---
 
 ## System Architecture
-Image Input (User Upload)
-│
-▼
-FastAPI Backend (/detect)
-│
-▼
-CV Detection Engine (detector.py)
-│
-├── Image preprocessing (Pillow, NumPy)
-├── Region scoring (grid-based analysis)
-└── Bounding box generation
-│
-▼
-SQLite Database
-│
-├── /results (annotated images)
-├── /stats (analytics data)
-└── /map (geo-visualization)
-│
-▼
-Frontend Dashboard
-(HTML, CSS, JavaScript, Leaflet.js, Chart.js)
+
+The system follows a modular pipeline:
+
+### 1. Input Layer
+User uploads image (marine/coastal environment)
+
+↓
+
+### 2. Backend Processing
+FastAPI handles request at `/detect`
+
+↓
+
+### 3. Computer Vision Engine (`detector.py`)
+- Image preprocessing (Pillow, NumPy)
+- Region-based analysis (grid scoring)
+- Object detection simulation
+- Bounding box generation
+
+↓
+
+### 4. Data Storage Layer (SQLite)
+- Stores detection results
+- Saves annotated images in `/results`
+- Maintains analytics in `/stats`
+- Supports geo-visualization in `/map`
+
+↓
+
+### 5. Frontend Dashboard
+- HTML / CSS / JavaScript UI
+- Leaflet.js for map visualization
+- Chart.js for analytics display
 
 
 ---
@@ -186,15 +197,17 @@ All system architecture decisions, implementation, and validation were performed
 
 ## Repository Structure
 /
-├── main.py
-├── detector.py
-├── database.py
-├── requirements.txt
+├── main.py # FastAPI entry point
+├── detector.py # Computer vision detection logic
+├── database.py # SQLite database handling
+├── requirements.txt # Project dependencies
+│
 ├── static/
-│ └── index.html
-├── results/
-├── detections.db
-└── README.md
+│ └── index.html # Frontend dashboard UI
+│
+├── results/ # Stored detection outputs
+├── detections.db # SQLite database file
+└── README.md # Project documentation
 
 
 ---
