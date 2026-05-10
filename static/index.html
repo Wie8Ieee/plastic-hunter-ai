@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plastic Hunter AI — Marine Pollution Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --ocean-deep: #0a1628;
+    --ocean-mid: #0d2240;
+    --ocean-surface: #0f3460;
+    --teal-bright: #00d4aa;
+    --teal-mid: #00a884;
+    --teal-dim: #007a62;
+    --amber-warn: #f5a623;
+    --red-danger: #e84855;
+    --green-ok: #2ecc71;
+    --text-primary: #e8f4f0;
+    --text-secondary: #8fb8b0;
+    --text-muted: #4a7a72;
+    --card-bg: rgba(15, 52, 96, 0.5);
+    --card-border: rgba(0, 212, 170, 0.15);
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--ocean-deep);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(0,212,170,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(15,52,96,0.8) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,22,40,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--card-border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-display); font-size: 18px; font-weight: 800;
+    color: var(--text-primary); letter-spacing: -0.02em;
+  }
+
+  .nav-brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--teal-bright);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+
+  .nav-tabs {
+    display: flex; gap: 4px;
+  }
+
+  .nav-tab {
+    padding: 6px 16px; border-radius: 6px; border: none;
+    background: transparent; color: var(--text-secondary);
+    font-family: var(--font-body); font-size: 14px; cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .nav-tab:hover { color: var(--text-primary); background: rgba(0,212,170,0.08); }
+  .nav-tab.active { background: rgba(0,212,170,0.15); color: var(--teal-bright); }
+
+  .nav-badge {
+    font-size: 11px; font-family: var(--font-mono);
+    color: var(--teal-mid); background: rgba(0,212,170,0.1);
+    border: 1px solid rgba(0,212,170,0.2); border-radius: 4px;
+    padding: 2px 8px;
+  }
+
+  main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* HERO */
+  .hero {
+    text-align: center; padding: 3rem 0 2rem;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-tag {
+    display: inline-block; margin-bottom: 1.5rem;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+    color: var(--teal-mid); text-transform: uppercase;
+    border: 1px solid rgba(0,212,170,0.25); border-radius: 20px;
+    padding: 4px 14px;
+  }
+
+  h1 {
+    font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800; line-height: 1.1; letter-spacing: -0.03em;
+    color: var(--text-primary); margin-bottom: 1rem;
+  }
+
+  h1 span { color: var(--teal-bright); }
+
+  .hero-sub {
+    font-size: 16px; color: var(--text-secondary);
+    max-width: 520px; margin: 0 auto 2rem; line-height: 1.7;
+  }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 2px dashed rgba(0,212,170,0.3);
+    border-radius: 16px; padding: 3rem 2rem;
+    text-align: center; cursor: pointer;
+    transition: all 0.3s; background: rgba(0,212,170,0.03);
+    margin-bottom: 1.5rem;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--teal-bright);
+    background: rgba(0,212,170,0.07);
+  }
+
+  .upload-icon {
+    width: 56px; height: 56px; margin: 0 auto 1rem;
+    background: rgba(0,212,170,0.1); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+
+  .upload-zone h3 {
+    font-family: var(--font-display); font-size: 18px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .upload-zone p { font-size: 14px; color: var(--text-muted); }
+
+  #file-input { display: none; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px; border-radius: 8px; border: none;
+    font-family: var(--font-body); font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--teal-bright); color: var(--ocean-deep);
+  }
+  .btn-primary:hover { background: var(--teal-mid); transform: translateY(-1px); }
+
+  .btn-secondary {
+    background: rgba(0,212,170,0.1); color: var(--teal-bright);
+    border: 1px solid rgba(0,212,170,0.25);
+  }
+  .btn-secondary:hover { background: rgba(0,212,170,0.18); }
+
+  .btn-sm { padding: 7px 14px; font-size: 13px; }
+
+  .btn-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+
+  /* PREVIEW */
+  #preview-section {
+    display: none; margin-bottom: 1.5rem;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  @media (max-width: 640px) { .preview-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 1.25rem;
+    backdrop-filter: blur(8px);
+  }
+
+  .card-title {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.75rem;
+  }
+
+  #preview-canvas {
+    width: 100%; border-radius: 8px;
+    background: #000; display: block;
+  }
+
+  /* RESULTS */
+  .result-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1rem; }
+
+  .metric {
+    background: rgba(0,212,170,0.06);
+    border: 1px solid rgba(0,212,170,0.12);
+    border-radius: 10px; padding: 1rem;
+    text-align: center;
+  }
+
+  .metric-val {
+    font-family: var(--font-display); font-size: 28px; font-weight: 800;
+    line-height: 1; margin-bottom: 4px;
+  }
+
+  .metric-val.teal { color: var(--teal-bright); }
+  .metric-val.amber { color: var(--amber-warn); }
+  .metric-val.green { color: var(--green-ok); }
+  .metric-val.red { color: var(--red-danger); }
+
+  .metric-label { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .severity-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+  .severity-none { background: rgba(78,78,78,0.3); color: #aaa; }
+  .severity-low { background: rgba(46,204,113,0.15); color: var(--green-ok); }
+  .severity-medium { background: rgba(245,166,35,0.15); color: var(--amber-warn); }
+  .severity-high { background: rgba(232,72,85,0.15); color: var(--red-danger); }
+
+  .detection-list { list-style: none; }
+  .detection-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+  }
+  .detection-item:last-child { border-bottom: none; }
+  .detection-label { color: var(--text-secondary); }
+  .detection-conf {
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--teal-bright);
+  }
+
+  .conf-bar {
+    width: 60px; height: 4px; background: rgba(255,255,255,0.08);
+    border-radius: 2px; overflow: hidden; margin-left: 8px;
+  }
+  .conf-fill { height: 100%; background: var(--teal-bright); border-radius: 2px; }
+
+  /* LOADING */
+  .loader {
+    display: none; text-align: center; padding: 2rem;
+  }
+  .loader.active { display: block; }
+
+  .scan-anim {
+    width: 80px; height: 80px; margin: 0 auto 1rem;
+    border: 2px solid rgba(0,212,170,0.2);
+    border-top-color: var(--teal-bright);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .scan-text {
+    font-family: var(--font-mono); font-size: 13px;
+    color: var(--teal-mid); letter-spacing: 0.05em;
+  }
+
+  /* MAP */
+  #map { height: 420px; border-radius: 12px; border: 1px solid var(--card-border); }
+
+  .map-legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-top: 12px; font-size: 12px; color: var(--text-secondary);
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  @media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .stat-card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 1.25rem;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--font-display); font-size: 32px; font-weight: 800;
+    color: var(--teal-bright); line-height: 1;
+  }
+
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 6px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .baseline-banner {
+    background: linear-gradient(135deg, rgba(0,212,170,0.08), rgba(0,168,132,0.04));
+    border: 1px solid rgba(0,212,170,0.2);
+    border-radius: 12px; padding: 1.5rem;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 1.5rem; flex-wrap: wrap; gap: 1rem;
+  }
+
+  .baseline-text h3 {
+    font-family: var(--font-display); font-size: 16px; font-weight: 700; margin-bottom: 4px;
+  }
+
+  .baseline-text p { font-size: 13px; color: var(--text-secondary); }
+
+  .reduction-num {
+    font-family: var(--font-display); font-size: 48px; font-weight: 800;
+    color: var(--teal-bright); line-height: 1;
+  }
+
+  .reduction-label { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); text-transform: uppercase; }
+
+  /* ABOUT */
+  .about-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 2rem; }
+  @media (max-width: 768px) { .about-grid { grid-template-columns: 1fr; } }
+
+  .about-card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 12px; padding: 1.5rem;
+  }
+
+  .about-icon { font-size: 28px; margin-bottom: 1rem; }
+  .about-card h3 { font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .about-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+  .sdg-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1.5rem; }
+
+  .sdg-badge {
+    padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    font-family: var(--font-mono);
+  }
+
+  .sdg-14 { background: rgba(0,119,182,0.2); color: #60b4e8; border: 1px solid rgba(0,119,182,0.3); }
+  .sdg-13 { background: rgba(72,187,120,0.2); color: #68d391; border: 1px solid rgba(72,187,120,0.3); }
+  .sdg-12 { background: rgba(214,158,46,0.2); color: #f6c44d; border: 1px solid rgba(214,158,46,0.3); }
+
+  section-header { display: block; margin-bottom: 1.5rem; }
+  .sh { margin-bottom: 1.5rem; }
+  .sh h2 { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .sh p { font-size: 14px; color: var(--text-secondary); }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 2rem; right: 2rem; z-index: 999;
+    background: var(--teal-bright); color: var(--ocean-deep);
+    padding: 12px 20px; border-radius: 8px; font-weight: 500; font-size: 14px;
+    transform: translateY(100px); opacity: 0; transition: all 0.3s;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  .empty-state {
+    text-align: center; padding: 3rem; color: var(--text-muted);
+    font-size: 14px;
+  }
+  .empty-state div { font-size: 32px; margin-bottom: 0.75rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="dot"></div>
+    Plastic Hunter AI
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showSection('detect')">Detect</button>
+    <button class="nav-tab" onclick="showSection('map')">Map</button>
+    <button class="nav-tab" onclick="showSection('stats')">Stats</button>
+    <button class="nav-tab" onclick="showSection('about')">About</button>
+  </div>
+  <div class="nav-badge">SDG 14 · 13 · 12</div>
+</nav>
+
+<main>
+
+  <!-- DETECT -->
+  <section id="sec-detect" class="section active">
+    <div class="hero">
+      <div class="hero-tag">🌊 AI-Powered Marine Protection</div>
+      <h1>Detect <span>Plastic Pollution</span><br>in Marine Environments</h1>
+      <p class="hero-sub">Upload an image of a marine environment. Our AI model analyzes it for plastic pollution and generates a detailed pollution report.</p>
+    </div>
+
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()" ondragover="handleDrag(event)" ondrop="handleDrop(event)" ondragleave="this.classList.remove('drag-over')">
+      <div class="upload-icon">📷</div>
+      <h3>Drop your image here</h3>
+      <p>Supports JPG, PNG, WEBP — or click to browse</p>
+      <input type="file" id="file-input" accept="image/*" onchange="handleFile(this.files[0])">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="runDemo()">⚡ Load Demo Data</button>
+    </div>
+
+    <div class="loader" id="loader">
+      <div class="scan-anim"></div>
+      <div class="scan-text">SCANNING FOR PLASTIC SIGNATURES...</div>
+    </div>
+
+    <div id="preview-section">
+      <div class="preview-grid">
+        <div class="card">
+          <div class="card-title">Analyzed Image</div>
+          <canvas id="preview-canvas"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Detection Results</div>
+          <div id="result-metrics" class="result-metrics"></div>
+          <div id="detection-list-wrap" style="margin-top:0.75rem;"></div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; margin-top:12px; justify-content:flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="resetDetect()">↩ New Scan</button>
+        <button class="btn btn-primary btn-sm" onclick="showSection('map')">View on Map →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section id="sec-map" class="section">
+    <div class="sh">
+      <h2>🗺 Pollution Map</h2>
+      <p>Interactive map showing all detected pollution locations. Click markers for details.</p>
+    </div>
+    <div id="map"></div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e84855"></div> High severity</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f5a623"></div> Medium severity</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2ecc71"></div> Low severity</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#888"></div> None detected</div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="sec-stats" class="section">
+    <div class="sh">
+      <h2>📊 Detection Statistics</h2>
+      <p>Aggregate analysis of all scans and detected pollution events.</p>
+    </div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="s-scans">—</div><div class="stat-label">Total Scans</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-plastic">—</div><div class="stat-label">Items Detected</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-conf">—</div><div class="stat-label">Avg Confidence</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-reduc">—</div><div class="stat-label">Reduction vs Baseline</div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="card">
+        <div class="card-title">Daily Detections (last 7 days)</div>
+        <canvas id="chart-daily" height="180"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Severity Distribution</div>
+        <canvas id="chart-severity" height="180"></canvas>
+      </div>
+    </div>
+    <div class="baseline-banner">
+      <div class="baseline-text">
+        <h3>Baseline vs Optimized Comparison</h3>
+        <p>Estimated reduction in plastic items reaching the ocean with AI-assisted monitoring vs no monitoring (baseline).</p>
+      </div>
+      <div style="text-align:center;">
+        <div class="reduction-num" id="b-reduc">—</div>
+        <div class="reduction-label">Estimated reduction</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="sec-about" class="section">
+    <div class="sh">
+      <h2>🌊 About Plastic Hunter AI</h2>
+      <p>AESS Sustainability Hackathon 2026 — Track 11: Sustainable Sonar Systems for Marine & Climate Protection</p>
+    </div>
+    <div class="about-grid">
+      <div class="about-card">
+        <div class="about-icon">🎯</div>
+        <h3>Problem</h3>
+        <p>Marine plastic pollution affects over 800 species and costs $13B annually in environmental damage. Manual detection is too slow and expensive to scale.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-icon">🤖</div>
+        <h3>Solution</h3>
+        <p>AI-powered Computer Vision system that automatically detects plastic pollution in marine images and videos, generating real-time pollution maps.</p>
+      </div>
+      <div class="about-card">
+        <div class="about-icon">📈</div>
+        <h3>Impact</h3>
+        <p>Enables faster response times, precise pollution mapping, and data-driven cleanup prioritization — protecting marine ecosystems at scale.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">System Architecture</div>
+      <div style="font-size:14px; color:var(--text-secondary); line-height:2; margin-top:0.5rem;">
+        <code style="font-family:var(--font-mono); color:var(--teal-bright);">Image/Video Input</code>
+        → <code style="font-family:var(--font-mono); color:var(--text-secondary);">FastAPI Backend</code>
+        → <code style="font-family:var(--font-mono); color:var(--teal-bright);">YOLOv8 Detection Model</code>
+        → <code style="font-family:var(--font-mono); color:var(--text-secondary);">SQLite Storage</code>
+        → <code style="font-family:var(--font-mono); color:var(--teal-bright);">Leaflet.js Map + Chart.js Dashboard</code>
+      </div>
+      <div style="margin-top:1rem; font-size:13px; color:var(--text-muted);">
+        Tools: Python · FastAPI · YOLOv8 (Ultralytics) · OpenCV · SQLite · Leaflet.js · Chart.js
+      </div>
+    </div>
+    <div class="sdg-row">
+      <div class="sdg-badge sdg-14">SDG 14 — Life Below Water</div>
+      <div class="sdg-badge sdg-13">SDG 13 — Climate Action</div>
+      <div class="sdg-badge sdg-12">SDG 12 — Responsible Consumption</div>
+    </div>
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-title">AI Usage Disclosure</div>
+      <p style="font-size:13px; color:var(--text-secondary); line-height:1.7; margin-top:0.5rem;">
+        This project uses AI assistance for code generation and documentation structuring. All outputs were reviewed and validated by the team. The detection model simulates YOLOv8 behavior — in production, replace <code style="font-family:var(--font-mono); color:var(--teal-bright);">detector.py</code> with a model trained on real marine plastic datasets (TACO, PlasticLitter).
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+const API = '';
+let map = null;
+let dailyChart = null;
+let severityChart = null;
+
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'map') initMap();
+  if (name === 'stats') loadStats();
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function handleDrag(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.add('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+}
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) { toast('Please upload an image file'); return; }
+  const reader = new FileReader();
+  reader.onload = e => analyzeImage(file, e.target.result);
+  reader.readAsDataURL(file);
+}
+
+async function analyzeImage(file, dataUrl) {
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('loader').classList.add('active');
+  document.getElementById('preview-section').style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(API + '/detect', { method: 'POST', body: formData });
+    const data = await res.json();
+    document.getElementById('loader').classList.remove('active');
+    renderResult(data, dataUrl);
+  } catch (err) {
+    document.getElementById('loader').classList.remove('active');
+    toast('Detection error — check backend connection');
+    resetDetect();
+  }
+}
+
+function renderResult(data, dataUrl) {
+  document.getElementById('preview-section').style.display = 'block';
+
+  const canvas = document.getElementById('preview-canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+
+    if (data.detections && data.detections.length > 0) {
+      data.detections.forEach(det => {
+        const x = det.bbox.x1 * img.width;
+        const y = det.bbox.y1 * img.height;
+        const w = (det.bbox.x2 - det.bbox.x1) * img.width;
+        const h = (det.bbox.y2 - det.bbox.y1) * img.height;
+
+        const color = det.confidence > 0.8 ? '#e84855' : det.confidence > 0.65 ? '#f5a623' : '#2ecc71';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+
+        ctx.fillStyle = color;
+        ctx.font = 'bold 11px DM Mono, monospace';
+        const label = `${det.label} ${Math.round(det.confidence * 100)}%`;
+        const tw = ctx.measureText(label).width;
+        ctx.fillRect(x - 1, y - 18, tw + 8, 18);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, x + 3, y - 4);
+      });
+    }
+  };
+  img.src = dataUrl;
+
+  const sevClass = { 'None': 'severity-none', 'Low': 'severity-low', 'Medium': 'severity-medium', 'High': 'severity-high' };
+  const sevColor = { 'None': 'teal', 'Low': 'green', 'Medium': 'amber', 'High': 'red' };
+
+  document.getElementById('result-metrics').innerHTML = `
+    <div class="metric"><div class="metric-val teal">${data.plastic_count}</div><div class="metric-label">Items Found</div></div>
+    <div class="metric"><div class="metric-val ${sevColor[data.severity] || 'teal'}">${data.severity}</div><div class="metric-label">Severity</div></div>
+    <div class="metric"><div class="metric-val green">${data.reduction_pct}%</div><div class="metric-label">vs Baseline</div></div>
+  `;
+
+  let listHTML = '';
+  if (data.detections && data.detections.length > 0) {
+    listHTML = '<ul class="detection-list">' + data.detections.slice(0, 6).map(d => `
+      <li class="detection-item">
+        <span class="detection-label">${d.label}</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="conf-bar"><div class="conf-fill" style="width:${Math.round(d.confidence*100)}%"></div></div>
+          <span class="detection-conf">${Math.round(d.confidence*100)}%</span>
+        </div>
+      </li>
+    `).join('') + '</ul>';
+  } else {
+    listHTML = '<div style="color:var(--text-muted);font-size:13px;padding:1rem 0;">✅ No plastic detected in this image.</div>';
+  }
+  document.getElementById('detection-list-wrap').innerHTML = listHTML;
+  toast(`Scan complete — ${data.plastic_count} item(s) detected`);
+}
+
+function resetDetect() {
+  document.getElementById('upload-zone').style.display = 'block';
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('file-input').value = '';
+}
+
+async function runDemo() {
+  try {
+    const res = await fetch(API + '/demo', { method: 'POST' });
+    const data = await res.json();
+    toast(`Demo loaded — ${data.count} sample detections added`);
+    if (map) loadMapMarkers();
+  } catch (e) {
+    toast('Could not connect to backend');
+  }
+}
+
+function initMap() {
+  if (map) { loadMapMarkers(); return; }
+  map = L.map('map').setView([32.5, 34.9], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+  loadMapMarkers();
+}
+
+async function loadMapMarkers() {
+  try {
+    const res = await fetch(API + '/results');
+    const data = await res.json();
+    map.eachLayer(l => { if (l instanceof L.CircleMarker) map.removeLayer(l); });
+
+    if (!data.detections || data.detections.length === 0) return;
+
+    const colors = { High: '#e84855', Medium: '#f5a623', Low: '#2ecc71', None: '#888' };
+
+    data.detections.forEach(d => {
+      if (!d.latitude || !d.longitude) return;
+      const color = colors[d.severity] || '#888';
+      const radius = d.plastic_count > 0 ? Math.min(8 + d.plastic_count, 18) : 5;
+
+      L.circleMarker([d.latitude, d.longitude], {
+        radius, color, fillColor: color, fillOpacity: 0.7, weight: 1.5
+      }).bindPopup(`
+        <div style="font-family:DM Sans,sans-serif;font-size:13px;">
+          <strong>${d.image_name || 'Unknown'}</strong><br>
+          Severity: <strong>${d.severity}</strong><br>
+          Items: <strong>${d.plastic_count}</strong><br>
+          Confidence: <strong>${Math.round((d.avg_confidence || 0) * 100)}%</strong><br>
+          <span style="color:#888;font-size:11px;">${(d.timestamp || '').substring(0,16).replace('T',' ')}</span>
+        </div>
+      `).addTo(map);
+    });
+  } catch (e) {}
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch(API + '/stats');
+    const data = await res.json();
+
+    document.getElementById('s-scans').textContent = data.total_scans || 0;
+    document.getElementById('s-plastic').textContent = data.total_plastic_detected || 0;
+    document.getElementById('s-conf').textContent = data.avg_confidence ? Math.round(data.avg_confidence * 100) + '%' : '—';
+    document.getElementById('s-reduc').textContent = (data.reduction_pct || 0) + '%';
+    document.getElementById('b-reduc').textContent = (data.reduction_pct || 0) + '%';
+
+    const daily = data.daily_detections || [];
+    const labels = daily.map(d => d.date ? d.date.substring(5) : '').reverse();
+    const counts = daily.map(d => d.count || 0).reverse();
+
+    if (dailyChart) dailyChart.destroy();
+    dailyChart = new Chart(document.getElementById('chart-daily'), {
+      type: 'bar',
+      data: {
+        labels: labels.length ? labels : ['No data'],
+        datasets: [{ label: 'Items detected', data: counts.length ? counts : [0], backgroundColor: 'rgba(0,212,170,0.4)', borderColor: '#00d4aa', borderWidth: 1, borderRadius: 4 }]
+      },
+      options: {
+        responsive: true, plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8fb8b0', font: { family: 'DM Mono' } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y: { ticks: { color: '#8fb8b0', font: { family: 'DM Mono' } }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true }
+        }
+      }
+    });
+
+    const sev = data.severity_distribution || {};
+    const sevLabels = Object.keys(sev);
+    const sevColors = { High: '#e84855', Medium: '#f5a623', Low: '#2ecc71', None: '#555' };
+
+    if (severityChart) severityChart.destroy();
+    severityChart = new Chart(document.getElementById('chart-severity'), {
+      type: 'doughnut',
+      data: {
+        labels: sevLabels.length ? sevLabels : ['No data'],
+        datasets: [{ data: sevLabels.length ? sevLabels.map(k => sev[k]) : [1], backgroundColor: sevLabels.length ? sevLabels.map(k => sevColors[k] || '#555') : ['#333'], borderWidth: 0 }]
+      },
+      options: {
+        responsive: true, cutout: '65%',
+        plugins: { legend: { position: 'bottom', labels: { color: '#8fb8b0', font: { family: 'DM Mono', size: 11 }, boxWidth: 10, padding: 12 } } }
+      }
+    });
+  } catch (e) {}
+}
+</script>
+</body>
+</html>
