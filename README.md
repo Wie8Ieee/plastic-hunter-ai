@@ -94,11 +94,6 @@ FastAPI handles request at `/detect`
 | Frontend      | HTML, CSS, JavaScript |
 | Visualization | Leaflet.js, Chart.js |
 
----
-
-## Live Demo
-
-https://ocean-plastic-monitor--ayah4.replit.app/
 
 ---
 
