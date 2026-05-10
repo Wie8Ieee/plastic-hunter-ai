@@ -197,16 +197,27 @@ All system architecture decisions, implementation, and validation were performed
 
 ## Repository Structure
 /
-├── main.py # FastAPI entry point
-├── detector.py # Computer vision detection logic
-├── database.py # SQLite database handling
-├── requirements.txt # Project dependencies
+
+├── main.py # FastAPI application entry point
+├── detector.py # Core detection engine (computer vision logic)
+├── database.py # Database handling and storage logic
 │
-├── static/
-│ └── index.html # Frontend dashboard UI
+├── YOLOv8_Detection.py # YOLOv8-based detection experiments
 │
-├── results/ # Stored detection outputs
-├── detections.db # SQLite database file
+├── simulation/
+│ └── sonar_simulation.py # Acoustic / sonar system simulation
+│
+├── assets/ # Project resources and media files
+│
+├── notebooks/ # Jupyter notebooks for experiments & analysis
+│
+├── static/ # Frontend files (HTML/CSS/JS dashboard)
+│
+├── results/ # Output results and generated visualizations
+│ ├── plot1_signal_comparison.png
+│ ├── plot2_acoustic_impact.png
+│ └── plot3_comparison_dashboard.png
+│
 └── README.md # Project documentation
 
 
